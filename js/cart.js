@@ -202,6 +202,9 @@ function addToCart(productId, sizeId, toppingIds = [], quantity = 1) {
     // Cập nhật badge số lượng trên header
     updateCartBadge();
 
+    // Dispatch event để kích hoạt animation
+    window.dispatchEvent(new Event('cartUpdated'));
+
     return { success: true, message: 'Đã thêm vào giỏ hàng!' };
 }
 
@@ -238,6 +241,9 @@ function updateQuantity(cartItemId, delta) {
     saveCart(cart);
     updateCartBadge();
 
+    // Dispatch event để kích hoạt animation
+    window.dispatchEvent(new Event('cartUpdated'));
+
     return { success: true, message: 'Đã cập nhật số lượng.' };
 }
 
@@ -255,6 +261,9 @@ function removeFromCart(cartItemId) {
 
     saveCart(newCart);
     updateCartBadge();
+
+    // Dispatch event để kích hoạt animation
+    window.dispatchEvent(new Event('cartUpdated'));
 
     return { success: true, message: 'Đã xóa khỏi giỏ hàng.' };
 }

@@ -289,16 +289,33 @@
    * 
    * Tạo feedback trực quan khi user tương tác
    */
+  /**
+   * RippleEffect - Tạo hiệu ứng gợn sóng khi click button
+   * 
+   * Giống Material Design ripple:
+   * 1. User click button
+   * 2. Tạo element .ripple tại vị trí click
+   * 3. Ripple mở rộng ra (scale animation)
+   * 4. Fade out và tự xóa
+   * 
+   * UPDATE: Sử dụng Event Delegation để hỗ trợ dynamic elements
+   */
   const RippleEffect = {
     /**
-     * Khởi tạo - Bind click event cho tất cả buttons
-     * 
-     * Lưu ý: Loại trừ .mobile-menu-btn để tránh conflict
+     * Khởi tạo - Bind click event cho document (Delegation)
      */
     init() {
-      document.querySelectorAll(".btn:not(.mobile-menu-btn), .ripple-container").forEach((el) => {
-        el.addEventListener("click", (e) => this.createRipple(e, el));
-      });
+      // Dùng event delegation: Lắng nghe click trên document
+      // Sử dụng CAPTURE phase ({capture: true}) để bắt được event 
+      // kể cả khi button có e.stopPropagation() (như nút Thêm vào giỏ)
+      document.addEventListener("click", (e) => {
+        // Tìm element .btn hoặc .ripple-container gần nhất
+        const target = e.target.closest(".btn:not(.mobile-menu-btn), .ripple-container");
+        
+        if (target) {
+          this.createRipple(e, target);
+        }
+      }, { capture: true });
     },
 
     /**
@@ -309,7 +326,10 @@
      */
     createRipple(e, element) {
       // Xóa các ripple cũ còn sót lại
-      element.querySelectorAll(".ripple").forEach((r) => r.remove());
+      const oldRipple = element.querySelector(".ripple");
+      if (oldRipple) {
+        oldRipple.remove();
+      }
 
       // Lấy kích thước và vị trí element
       const rect = element.getBoundingClientRect();
@@ -317,7 +337,9 @@
       // Ripple size = dimension lớn nhất của element (để cover hết)
       const size = Math.max(rect.width, rect.height);
       
-      // Vị trí ripple = vị trí click - offset để center
+      // Vị trí ripple tuong doi so voi element
+      // e.clientX/Y là toạ độ chuột so với viewport
+      // rect.left/top là toạ độ element so với viewport
       const x = e.clientX - rect.left - size / 2;
       const y = e.clientY - rect.top - size / 2;
 
@@ -326,17 +348,18 @@
       ripple.className = "ripple"; // Class ripple có animation trong CSS
       
       // Set inline style cho kích thước và vị trí
-      ripple.style.cssText = `
-        width: ${size}px;
-        height: ${size}px;
-        left: ${x}px;
-        top: ${y}px;
-      `;
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
 
-      // Element cha cần position relative để ripple hiển thị đúng
+      // Element cha cần position relative (hoặc absolute/fixed) để ripple hiển thị đúng
       // và overflow hidden để ripple không tràn ra ngoài
-      element.style.position = "relative";
-      element.style.overflow = "hidden";
+      const style = window.getComputedStyle(element);
+      if (style.position === 'static') {
+        element.style.position = 'relative';
+      }
+      element.style.overflow = 'hidden';
       
       // Thêm ripple vào element
       element.appendChild(ripple);
@@ -399,39 +422,59 @@
   // ===========================================================================
 
   /**
-   * Hàm init chính - Đảm bảo DOM đã sẵn sàng trước khi init
-   */
-  function init() {
-    // Kiểm tra DOM đã load chưa
-    if (document.readyState === "loading") {
-      // Chưa load -> Đợi DOMContentLoaded
-      document.addEventListener("DOMContentLoaded", initAll);
-    } else {
-      // Đã load -> Init ngay
-      initAll();
-    }
-  }
-
-  /**
    * Khởi tạo tất cả modules
+   * 
+   * QUAN TRỌNG: Hàm này CHỈ chạy sau khi:
+   * 1. DOM đã load xong hoàn toàn
+   * 2. Tất cả scripts khác đã thực thi
    */
   function initAll() {
-    // Init từng module
-    HeaderGlass.init();       // Header glass effect
-    CardTilt.init();          // 3D tilt cho cards
-    RippleEffect.init();      // Ripple cho buttons
-    CartBadgeAnimation.init(); // Badge bounce animation
-
-    // Tự động thêm class card-3d cho product cards
-    // Để product cards tự động có hiệu ứng 3D tilt
-    document.querySelectorAll(".product-card").forEach((card) => {
-      if (!card.classList.contains("card-3d")) {
-        card.classList.add("card-3d");
+    try {
+      // Kiểm tra xem DOM có sẵn sàng không
+      if (!document.body) {
+        console.error("UIEnhancements: DOM chưa sẵn sàng!");
+        return;
       }
-    });
-    
-    // Bind tilt effect cho các cards mới thêm
-    CardTilt.refresh();
+
+      // Init từng module với error handling
+      try {
+        HeaderGlass.init();
+      } catch (e) {
+        console.error("HeaderGlass init failed:", e);
+      }
+
+      try {
+        CardTilt.init();
+      } catch (e) {
+        console.error("CardTilt init failed:", e);
+      }
+
+      try {
+        RippleEffect.init();
+      } catch (e) {
+        console.error("RippleEffect init failed:", e);
+      }
+
+      try {
+        CartBadgeAnimation.init();
+      } catch (e) {
+        console.error("CartBadgeAnimation init failed:", e);
+      }
+
+      // Tự động thêm class card-3d cho product cards
+      document.querySelectorAll(".product-card").forEach((card) => {
+        if (!card.classList.contains("card-3d")) {
+          card.classList.add("card-3d");
+        }
+      });
+      
+      // Bind tilt effect cho các cards mới thêm
+      CardTilt.refresh();
+
+      console.log("✅ UIEnhancements initialized successfully");
+    } catch (error) {
+      console.error("UIEnhancements initialization failed:", error);
+    }
   }
 
   // ===========================================================================
@@ -455,6 +498,24 @@
     },
   };
 
-  // Chạy init
-  init();
+  // ===========================================================================
+  // KHỞI TẠO - CHẠY KHI DOM SẴN SÀNG
+  // ===========================================================================
+  
+  /**
+   * SỬA LỖI: Luôn luôn đợi DOMContentLoaded
+   * 
+   * Live Server có thể load script trước khi DOM ready
+   * Netlify thường load chậm hơn nên không gặp vấn đề này
+   * 
+   * Giải pháp: LUÔN LUÔN lắng nghe DOMContentLoaded, kể cả khi readyState !== 'loading'
+   */
+  if (document.readyState === "loading") {
+    // Chưa load -> Đợi DOMContentLoaded
+    document.addEventListener("DOMContentLoaded", initAll);
+  } else {
+    // Đã load NHƯNG vẫn đợi một tick để đảm bảo tất cả scripts khác đã chạy
+    // Sử dụng setTimeout với 0ms để đưa vào event queue
+    setTimeout(initAll, 0);
+  }
 })();
